@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Oklahoma Covid Tracker</title>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css?family=Lora">
+    <link rel="stylesheet" type="text/css" href="./style/covid.css">
+</head>
+<body>
+<div>
+    <div class="wrapper">
+        <div class="charts">
+            <h1>Oklahoma Covid Tracker</h1>
+            <div>
+                <div id="chart_div" class="chart"></div>
+            </div>
+
+            <div>
+                <div id="change_chart_div" class="chart"></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- include Scala.js compiled code  -->
+<script type="text/javascript" src="./target/scala-2.12/oklahoma-covid-19-tracker-fastopt.js"></script>
+
+<script type="text/javascript">
+
+    //setup loading and resize
+    window.addEventListener("resize", drawCharts);
+
+    if (document.readyState === "complete" ||
+        (document.readyState !== "loading" && !document.documentElement.doScroll)
+    ) {
+        drawCharts();
+    } else {
+        document.addEventListener("DOMContentLoaded", drawCharts);
+    }
+
+    function drawCountyChart() {
+        var countyData = CovidTracker.fetchCountyData();
+
+
+        Promise.resolve(countyData).then(function (result) {
+                console.println(result);
+                var countyData = new google.visualization.DataTable();
+            },
+            function (err) {
+                console.log(err);
+            });
+    }
+
+    function drawCharts(){
+        google.charts.load('current', {packages: ['corechart', 'line']});
+        drawStateCharts();
+        drawCountyChart();
+    }
+
+    function drawStateCharts() {
+        var covidData = CovidTracker.fetchData();
+        google.charts.load('current', {packages: ['corechart', 'line']});
+
+        Promise.resolve(covidData).then(function (result) {
+                var okData = new google.visualization.DataTable();
+                var okChangeData = new google.visualization.DataTable();
+                okChangeData.addColumn('string', 'Date');
+                okChangeData.addColumn('number', 'Daily Case Increase');
+                okChangeData.addColumn('number', 'Daily Death Increase');
+                okData.addColumn('string', 'Date');
+                okData.addColumn('number', 'Current Cases');
+                okData.addColumn('number', 'Deaths');
+
+                var i;
+                for (i = 0; i < result.length; i++) {
+                    var row = result[i];
+                    okData.addRow([row[0].replace("2020-", ""), row[1], row[2]]);
+
+                    if (i > 0) {
+                        var prevRow = result[i - 1];
+                        okChangeData.addRow([row[0].replace("2020-", ""), row[1] - prevRow[1], row[2] - prevRow[2]]);
+                    }
+                }
+
+                var options = {
+                    chartArea: {'width': '85%', 'height': '75%'},
+                    legend: {position: 'top', textStyle: {fontSize: 12}},
+                    series: {
+                        0: {color: '#483D8B'},
+                        1: {color: '#CD5C5C'}
+                    },
+                    hAxis: {
+                        textStyle: {
+                            fontSize: 12
+                        },
+                        slantedText: true
+                    },
+                    vAxis: {
+                        textStyle: {
+                            fontSize: 12
+                        },
+                    },
+                    colors: ['#a52714', '#097138'],
+                    crosshair: {
+                        color: '#000',
+                        trigger: 'selection'
+                    }
+                };
+
+                var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+                chart.draw(okData, options);
+
+
+                var changeOptions = {
+                    chartArea: {'width': '85%', 'height': '75%'},
+                    legend: {position: 'top', textStyle: {fontSize: 12}},
+                    series: {
+                        0: {color: '#483D8B'},
+                        1: {color: '#CD5C5C'}
+                    },
+                    hAxis: {
+                        textStyle: {
+                            fontSize: 12
+                        },
+                        slantedText: true
+                    },
+                    vAxis: {
+                        textStyle: {
+                            fontSize: 12
+                        },
+
+                    },
+                    colors: ['#a52714', '#097138'],
+                    crosshair: {
+                        color: '#000',
+                        trigger: 'selection'
+                    }
+                };
+                var changeChart = new google.visualization.LineChart(document.getElementById('change_chart_div'));
+                changeChart.draw(okChangeData, changeOptions);
+
+            },
+            function (err) {
+                console.log(err);
+            });
+    }
+
+
+</script>
+</body>
+</html>

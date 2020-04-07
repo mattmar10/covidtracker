@@ -12,10 +12,13 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.scalajs.js
 import js.JSConverters._
+import scala.collection.immutable.ListMap
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 
 @JSExportTopLevel("CovidTracker")
 object CovidTracker {
+
+  type CountyName = String
 
   def main(args: Array[String]): Unit = {
 
@@ -104,11 +107,8 @@ object CovidTracker {
     fetchCountyStats()
       .map(e => {
         e.fold(_ => js.Array(), rows => {
-          rows.sortBy(rdr => rdr.county)
-
-          rows
-            .map(rdr => js.Array(rdr.date, rdr.county, rdr.cases, rdr.deaths))
-            .toJSArray
+          val countyStats = calculate(rows)
+          countyStats
         })
       })
       .toJSPromise
@@ -140,7 +140,7 @@ object CovidTracker {
 
   def fetchCountyStats(): Future[Either[DataError, Seq[RawCountyDataRow]]] = {
     val request = HttpRequest(
-      "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv"
+      "http://www.mattmartin.io/oklahoma-covid-data.csv"
     )
 
     request
@@ -150,15 +150,14 @@ object CovidTracker {
           res.body
             .split("\n")
             .drop(1)
-            .filter(line => line.contains("Oklahoma"))
             .map(line => {
-              val parts = line.split(",")
+              val pieces = line.split(",")
               RawCountyDataRow(
-                parts(0),
-                parts(2),
-                parts(1),
-                parts(4).toInt,
-                parts(5).toInt
+                pieces(0),
+                pieces(1),
+                pieces(2),
+                pieces(3).toInt,
+                pieces(4).toInt
               )
             })
         Right(parts.toSeq)
@@ -192,10 +191,13 @@ object CovidTracker {
 
   }
 
-  def calculate(rows: Seq[RawDataRow]): Seq[DataRow] = {
+  def calculate(rows: Seq[RawCountyDataRow]): js.Array[String] = {
 
-    val dataMap: scala.collection.mutable.Map[String, DataRow] =
-      new mutable.HashMap[String, DataRow]()
+    val dataMap: scala.collection.mutable.Map[String, scala.collection.mutable.Map[CountyName, CountyDataRow]] =
+      new mutable.HashMap[String, scala.collection.mutable.Map[CountyName, CountyDataRow]]()
+
+    val counties = rows.map(r => r.county).distinct.sorted
+
 
     rows
       .filter(
@@ -204,55 +206,61 @@ object CovidTracker {
       .foreach(rdr => {
 
         dataMap.get(rdr.date) match {
-          case Some(dr) => {
-            rdr.state match {
-              case "Oklahoma" => {
-                dataMap.put(
-                  rdr.date,
-                  DataRow(
-                    rdr.date,
-                    rdr.cases + dr.nationalCases,
-                    rdr.cases + dr.oklahomaCases,
-                    rdr.deaths + dr.nationalDeaths,
-                    rdr.deaths + dr.oklahomaDeaths
-                  )
-                )
+          case Some(countyMap) => {
+
+            countyMap.get(rdr.county) match {
+              case None => {
+                countyMap.put(rdr.county, CountyDataRow(rdr.date, rdr.county, rdr.cases, rdr.deaths))
               }
-              case _ => {
-                dataMap.put(
-                  rdr.date,
-                  dr.copy(
-                    nationalCases = dr.nationalCases + rdr.cases,
-                    nationalDeaths = dr.nationalDeaths + rdr.deaths
-                  )
-                )
+
+              case Some(m) => {
+                throw new IllegalStateException("duplicate data")
               }
-            }
-          }
-          case None =>
-            rdr.state match {
-              case "Oklahoma" =>
-                dataMap.put(
-                  rdr.date,
-                  DataRow(
-                    rdr.date,
-                    rdr.cases,
-                    rdr.cases,
-                    rdr.deaths,
-                    rdr.deaths
-                  )
-                )
-              case _ =>
-                dataMap
-                  .put(rdr.date, DataRow(rdr.date, rdr.cases, 0, rdr.deaths, 0))
             }
 
+
+          }
+          case None =>
+            val newMap = new scala.collection.mutable.HashMap[String, CountyDataRow]()
+            newMap.put(rdr.county, CountyDataRow(rdr.date, rdr.county, rdr.cases, rdr.deaths))
+
+            dataMap.put(rdr.date, newMap)
         }
 
       })
 
-    dataMap.values.toSeq.sortBy(dr => dr.date)
+    val sorted = ListMap(dataMap.toSeq.sortBy(_._1):_*)
+
+    val resultData = sorted.map(m => {
+
+      var line = ""
+      for( i <- counties.indices) {
+
+        m._2.get(counties(i)) match {
+          case None => line = line + 0
+          case Some(num) => line = line + num.cases
+        }
+
+        if(i != counties.length -1 ){
+          line = line + ","
+        }
+
+      }
+
+      line = m._1 + "," + line + "\n"
+
+      line
+
+    }).toSeq
+
+    val header = s"Date,${counties.mkString(",")}\n"
+
+    (Seq(header) ++ resultData).toJSArray
+
+
+
   }
+
 
 }
 
@@ -266,8 +274,9 @@ case class RawCountyDataRow(date: String,
                             cases: Int,
                             deaths: Int)
 
-case class DataRow(date: String,
-                   nationalCases: Int,
-                   oklahomaCases: Int,
-                   nationalDeaths: Int,
-                   oklahomaDeaths: Int)
+case class CountyDataRow(date: String,
+                   county: String,
+                         cases: Int,
+                         deaths: Int)
+
+

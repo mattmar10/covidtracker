@@ -1,21 +1,52 @@
 
 .wrapper{
-    text-align: left;
+    text-align: center;
     padding-left: 10px;
 }
 
 .wrapper h1{
     font-weight: bold;
     font-family: Lora;
-    margin-left: 5%;
+    font-size: 42px;
+    text-align: center;
 }
+
+.wrapper h2{
+    font-weight: bold;
+    font-family: Lora;
+    font-size: 24px;
+    text-align: left;
+    padding-left: 65px;
+    color: #444;
+}
+
 
 .charts {
     text-align: left;
+    padding-left: 45px;
+    padding-right: 20px;
 }
 
 .chart{
-    margin-bottom: 20px;
+    margin-bottom: 25px;
     width: 95%;
     height: 500px;
+    padding-bottom: 55px;
 }
+
+.countyChart{
+    padding-bottom: 30px;
+
+    width: 85%;
+    height: 800px;
+}
+
+.chart:after {
+    content: " ";
+    display: block;
+    border-bottom: 1px solid #eaeaea;
+    text-align: center;
+    margin-left: 18%;
+    margin-right: 18%;
+    margin-top: 40px;
+  }

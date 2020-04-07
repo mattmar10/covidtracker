@@ -13,12 +13,24 @@
     <div class="wrapper">
         <div class="charts">
             <h1>Oklahoma Covid Tracker</h1>
-            <div>
-                <div id="chart_div" class="chart"></div>
-            </div>
 
             <div>
-                <div id="change_chart_div" class="chart"></div>
+
+                <h2>Current View</h2>
+                <div>
+                    <div id="chart_div" class="chart"></div>
+                </div>
+
+                <span class="break"></span>
+
+                <h2>Daily Change</h2>
+                <div>
+                    <div id="change_chart_div" class="chart"></div>
+                </div>
+            </div>
+            <div>
+                <h2>County View</h2>
+                <div id="county_chart_div" class="countyChart"></div>
             </div>
         </div>
     </div>
@@ -45,9 +57,60 @@
         var countyData = CovidTracker.fetchCountyData();
 
 
+
         Promise.resolve(countyData).then(function (result) {
-                console.println(result);
                 var countyData = new google.visualization.DataTable();
+
+                countyData.addColumn('string', 'Date');
+
+                var counties = result[0].split(",")
+
+                var n;
+                for(n = 1; n < counties.length; n++){
+                    countyData.addColumn('number', counties[n]);
+                }
+
+
+                var i;
+                for(i = 1; i < result.length; i++){
+                    var row = result[i].split(",");
+                    row[0] = row[0].replace("2020-", "");
+
+                    var k;
+                    for(k=1; k<row.length; k++){
+                        row[k] = Number(row[k]);
+                    }
+
+                    countyData.addRow(row);
+
+                }
+
+                var options = {
+                    chartArea: { 'width': '75%', 'height': '90%'},
+                    legend: {position: 'right', textStyle: {fontSize: 12}},
+
+                    hAxis: {
+                        textStyle: {
+                            fontSize: 12
+                        },
+                        slantedText: true
+                    },
+                    vAxis: {
+                        textStyle: {
+                            fontSize: 12
+                        },
+                    },
+
+                    crosshair: {
+                        color: '#000',
+                        trigger: 'selection'
+                    }
+                };
+
+                var chart = new google.visualization.LineChart(document.getElementById('county_chart_div'));
+                chart.draw(countyData, options);
+
+
             },
             function (err) {
                 console.log(err);
@@ -86,7 +149,7 @@
                 }
 
                 var options = {
-                    chartArea: {'width': '85%', 'height': '75%'},
+                    chartArea: {'width': '85%', 'height': '85%'},
                     legend: {position: 'top', textStyle: {fontSize: 12}},
                     series: {
                         0: {color: '#483D8B'},
@@ -115,7 +178,7 @@
 
 
                 var changeOptions = {
-                    chartArea: {'width': '85%', 'height': '75%'},
+                    chartArea: {'width': '85%', 'height': '85%'},
                     legend: {position: 'top', textStyle: {fontSize: 12}},
                     series: {
                         0: {color: '#483D8B'},
